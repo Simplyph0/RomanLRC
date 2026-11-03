@@ -47,7 +47,7 @@ function japanese(tokenizer, text) {
   for (const t of tokenizer.tokenize(text)) {
     const k = t.pronunciation && t.pronunciation !== '*' ? t.pronunciation
             : t.reading && t.reading !== '*' ? t.reading : null;
-    parts.push(k ? kana2romaji(k) : t.surface_form);
+    parts.push(kana2romaji(k || t.surface_form)); // unknown words have no reading: still convert bare kana
   }
   return parts.join(' ').replace(/ +([,.!?;:、。！？)\]」』])/g, '$1').replace(/([(\[「『]) +/g, '$1').replace(/ {2,}/g, ' ').trim();
 }

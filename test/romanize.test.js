@@ -64,3 +64,9 @@ test('options: interleave and capitalize', () => {
 test('CRLF and BOM input', () => {
   assert.equal(R.convert('﻿[00:01.00]사랑해\r\n[00:02.00]안녕', {}, {}).text, '[00:01.00]saranghae\n[00:02.00]annyeong');
 });
+
+test('unknown katakana tokens (no reading) are still romanized; Latin passes through', () => {
+  const tok = fakeTok({ 'ティ ティ': [{ surface_form: 'ティ' }, { surface_form: ' ' }, { surface_form: 'ティ' }], 'Tic-Tac': [{ surface_form: 'Tic-Tac' }] });
+  assert.equal(R.convert('ティ ティ', { han: 'ja' }, { tokenizer: tok }).text, 'ti ti');
+  assert.equal(R.convert('Tic-Tac', { han: 'ja' }, { tokenizer: tok }).text, 'Tic-Tac');
+});
