@@ -37,7 +37,7 @@ jobs:
       - name: Assemble site
         run: |
           mkdir _site
-          cp -r index.html romanize.js vendor _site/
+          cp -r index.html sync.html romanize.js lrcsync.js vendor _site/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
