@@ -1,0 +1,8 @@
+{
+  "name": "romanlrc",
+  "version": "1.0.0",
+  "description": "Romanize CJK LRC lyrics in the browser, in real time, offline.",
+  "license": "Unlicense",
+  "scripts": { "test": "node --test test/", "start": "python3 serve.py" },
+  "private": true
+}

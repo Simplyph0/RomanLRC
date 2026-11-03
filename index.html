@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RomanLRC</title>
+<style>
+  :root { --bg:#fff; --fg:#1a1a1a; --mut:#666; --bd:#d6d6d6; --pane:#fafafa; --acc:#2a62d9; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#16181c; --fg:#e8e8e8; --mut:#9aa0a6; --bd:#33373d; --pane:#1d2025; --acc:#6b9bff; }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; display: flex; flex-direction: column; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--bd); }
+  header h1 { font-size: 16px; margin: 0 8px 0 0; }
+  label { color: var(--mut); font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
+  select, button { font: inherit; font-size: 13px; background: var(--pane); color: var(--fg); border: 1px solid var(--bd); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  button:hover { border-color: var(--acc); }
+  #status { margin-left: auto; color: var(--mut); font-size: 12px; }
+  main { flex: 1; display: grid; grid-template-columns: 1fr 1fr; min-height: 0; }
+  @media (max-width: 700px) { main { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; } }
+  section { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  section + section { border-left: 1px solid var(--bd); }
+  @media (max-width: 700px) { section + section { border-left: 0; border-top: 1px solid var(--bd); } }
+  .bar { padding: 6px 16px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--mut); display: flex; gap: 8px; align-items: center; }
+  .bar span { margin-right: auto; }
+  textarea, #out { flex: 1; margin: 0; padding: 8px 16px 16px; border: 0; outline: 0; resize: none; background: var(--pane); color: var(--fg);
+    font: 14px/1.7 ui-monospace, "SF Mono", Menlo, Consolas, "Noto Sans Mono CJK JP", monospace; white-space: pre-wrap; overflow: auto; min-height: 0; }
+  #out.drop, textarea.drop { outline: 2px dashed var(--acc); outline-offset: -6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>RomanLRC</h1>
+  <label>Han-only lines
+    <select id="han"><option value="auto">Auto</option><option value="zh">Chinese</option><option value="ja">Japanese</option></select>
+  </label>
+  <label>Pinyin tones
+    <select id="tone"><option value="symbol">nǐ hǎo</option><option value="num">ni3 hao3</option><option value="none">ni hao</option></select>
+  </label>
+  <label><input type="checkbox" id="ts" checked> Timestamps</label>
+  <label><input type="checkbox" id="cap"> Capitalize lines</label>
+  <label><input type="checkbox" id="both"> Interleave original</label>
+  <button id="open">Open .lrc…</button>
+  <input type="file" id="file" accept=".lrc,.txt,text/plain" hidden>
+  <span id="status"></span>
+</header>
+<main>
+  <section>
+    <div class="bar"><span>Original</span><button id="clear">Clear</button></div>
+    <textarea id="in" spellcheck="false" placeholder="Paste LRC lyrics here, or drop a .lrc file…"></textarea>
+  </section>
+  <section>
+    <div class="bar"><span>Romanized</span><button id="copy">Copy</button><button id="save">Download</button></div>
+    <div id="out"></div>
+  </section>
+</main>
+
+<script src="romanize.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const inp = $('in'), out = $('out'), status = $('status');
+
+/* ---------- lazy library loading (CDN, cached by browser) ---------- */
+const loaded = {};
+function loadScript(url) {
+  return loaded[url] ||= new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = url; s.onload = res; s.onerror = () => rej(new Error('failed to load ' + url));
+    document.head.appendChild(s);
+  });
+}
+let pinyinFn = null, tokenizer = null, loading = {};
+function need(name, fn) {
+  if (loading[name]) return;
+  loading[name] = true;
+  status.textContent = 'Loading ' + name + '…';
+  fn().then(() => { status.textContent = ''; render(); })
+      .catch(e => { loading[name] = false; status.textContent = e.message; });
+}
+const needPinyin = () => need('pinyin', async () => {
+  await loadScript('vendor/pinyin-pro.js');
+  pinyinFn = window.pinyinPro.pinyin;
+});
+const needKuromoji = () => need('Japanese dictionary', async () => {
+  await loadScript('vendor/kuromoji.js');
+  tokenizer = await new Promise((res, rej) =>
+    kuromoji.builder({ dicPath: 'vendor/dict/' }).build((e, t) => e ? rej(e) : res(t)));
+});
+
+function convert() {
+  const res = RomanLRC.convert(inp.value, {
+    han: $('han').value, tone: $('tone').value,
+    ts: $('ts').checked, cap: $('cap').checked, both: $('both').checked,
+  }, { tokenizer, pinyin: pinyinFn });
+  if (res.missing.has('tokenizer')) needKuromoji();
+  if (res.missing.has('pinyin')) needPinyin();
+  return res.text;
+}
+
+/* ---------- UI ---------- */
+let pending = 0;
+function render() { cancelAnimationFrame(pending); pending = requestAnimationFrame(() => { out.textContent = convert(); }); }
+inp.addEventListener('input', render);
+['han','tone','ts','cap','both'].forEach(id => $(id).addEventListener('input', render));
+
+$('clear').onclick = () => { inp.value = ''; render(); inp.focus(); };
+$('open').onclick = () => $('file').click();
+$('file').onchange = e => readFile(e.target.files[0]);
+function readFile(f) { if (f) f.text().then(t => { inp.value = t; render(); }); }
+[inp, out].forEach(el => {
+  el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drop'); });
+  el.addEventListener('dragleave', () => el.classList.remove('drop'));
+  el.addEventListener('drop', e => { e.preventDefault(); el.classList.remove('drop'); readFile(e.dataTransfer.files[0]); });
+});
+$('copy').onclick = async () => { await navigator.clipboard.writeText(out.textContent); $('copy').textContent = 'Copied'; setTimeout(() => $('copy').textContent = 'Copy', 1000); };
+$('save').onclick = () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([out.textContent], { type: 'text/plain;charset=utf-8' }));
+  a.download = 'romanized.lrc'; a.click(); URL.revokeObjectURL(a.href);
+};
+
+inp.value = `[ti:Sample]
+[00:01.00]夜空に星が光る
+[00:05.00]ありがとう、さようなら
+[00:09.00]사랑해 안녕하세요
+[00:13.00]君の名前を呼ぶよ`;
+render();
+</script>
+</body>
+</html>
