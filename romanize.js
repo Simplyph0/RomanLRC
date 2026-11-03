@@ -101,7 +101,7 @@ function convert(text, opts, deps) {
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.replace(/^﻿/, '');
     let m, tags = '', body = line, pre = '', post = '';
-    if ((m = line.match(reTime))) { tags = m[1]; body = m[2]; }
+    if ((m = line.match(reTime))) { tags = m[1]; body = m[2].trim(); }
     else if ((m = line.match(reMeta))) { pre = m[1]; body = m[2]; post = m[3]; }
     let r = body.trim() ? romanizeText(body, han, opts.tone || 'symbol', deps, missing) : body;
     if (r === null) r = '…';

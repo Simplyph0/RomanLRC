@@ -70,3 +70,8 @@ test('unknown katakana tokens (no reading) are still romanized; Latin passes thr
   assert.equal(R.convert('ティ ティ', { han: 'ja' }, { tokenizer: tok }).text, 'ti ti');
   assert.equal(R.convert('Tic-Tac', { han: 'ja' }, { tokenizer: tok }).text, 'Tic-Tac');
 });
+
+test('no spaces after the timestamp, for romanized, passthrough and empty lines', () => {
+  const r = R.convert('[00:01.00] 사랑해\n[00:02.00] Tic-Tac\n[00:03.00] ', {}, {}).text;
+  assert.equal(r, '[00:01.00]saranghae\n[00:02.00]Tic-Tac\n[00:03.00]');
+});
