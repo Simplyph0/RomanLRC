@@ -7,6 +7,7 @@ Paste or drop CJK `.lrc` lyrics and get romanized lyrics in a separate pane, liv
 - **Korean** → Revised Romanization (with basic linking of final consonants)
 - LRC timestamps and `[ti:]`/`[ar:]` metadata are preserved (timestamps optional); enhanced word tags `<mm:ss.xx>` are stripped
 - Options: interleave original lines, capitalize lines, copy, download as `.lrc`
+- **Fix readings** box: one `original=replacement` per line (e.g. `貴方様=anatasama`) for words the dictionary reads wrong; applied before romanizing and remembered in your browser
 
 ## Use
 

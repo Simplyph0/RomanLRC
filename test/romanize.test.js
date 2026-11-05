@@ -99,3 +99,23 @@ test('lone kanji without a reading borrows it from kanji + verb ending', () => {
   const tok = fakeTok({ '惹': [{ surface_form: '惹' }], '惹か': [{ surface_form: '惹か', reading: 'ヒカ' }] });
   assert.equal(R.convert('[00:08.51]惹', { han: 'ja' }, { tokenizer: tok }).text, '[00:08.51]hi');
 });
+
+test('Japanese: てる joins, leading っ joins verbs only, lone ー, あっ does not double, no space inside ***QLO, じゃ apart', () => {
+  const v = (s, p, pos, x) => ({ surface_form: s, pronunciation: p, pos, ...x });
+  const run = (text, toks) => R.convert(text, { han: 'ja' }, { tokenizer: fakeTok({ [text]: toks }) }).text;
+  assert.equal(run('とっ散らかってる', [v('とっ', 'トッ', '動詞'), v('散らかっ', 'チラカッ', '動詞'),
+    v('てる', 'テル', '動詞', { pos_detail_1: '非自立', basic_form: 'てる' })]), 'totchirakatteru');
+  assert.equal(run('キャトった', [{ surface_form: 'キャト', pos: '名詞' }, v('っ', 'ッ', '動詞', { pos_detail_1: '非自立' }),
+    v('た', 'タ', '助動詞', { basic_form: 'た' })]), 'kyatotta');
+  assert.equal(run('たかったって', [v('たかっ', 'タカッ', '助動詞', { basic_form: 'たい' }), v('た', 'タ', '助動詞', { basic_form: 'た' }),
+    v('って', 'ッテ', '助詞', { pos_detail_1: '格助詞' })]), 'takatta tte');
+  assert.equal(run('あっ圏外', [v('あっ', 'アッ', '感動詞'), v('圏外', 'ケンガイ', '名詞')]), 'a kengai');
+  assert.equal(run('もしもーし', [v('もしも', 'モシモ', '副詞'), { surface_form: 'ー', pos: '名詞' }, v('し', 'シ', '動詞')]), 'moshimooshi');
+  assert.equal(run('***QLOダウンじゃ', [{ surface_form: '***', pos: '名詞' }, { surface_form: 'QLO', pos: '名詞' },
+    v('ダウン', 'ダウン', '名詞'), v('じゃ', 'ジャ', '助動詞', { basic_form: 'じゃ' })]), '***QLO daun ja');
+});
+
+test('fix readings: original=replacement lines are applied before romanizing; bad lines are ignored', () => {
+  const r = R.convert('[00:01.00]貴方様 x\n[00:02.00]y', { han: 'ja', fix: '貴方様=anatasama\nno equals here\n=empty\na=b=c' }, {}).text;
+  assert.equal(r, '[00:01.00]anatasama x\n[00:02.00]y');
+});

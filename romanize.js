@@ -51,22 +51,28 @@ function kanjiReading(tokenizer, c) {
   return null;
 }
 
-/* Tokens that belong to the word before them: auxiliaries (nai, tai, masu), verb suffixes (reru) and te/de.
-   です/だ stay separate ("sei desu"); the dictionary's separate verbs like いる/しまう stay separate too. */
-const joins = t => t.pos === '助動詞' ? !['だ', 'です'].includes(t.basic_form)
+/* Tokens that belong to the word before them: auxiliaries (nai, tai, masu), verb suffixes (reru), te/de and てる (kikoeteru).
+   です/だ/じゃ stay separate ("sei desu"); the dictionary's separate verbs like いる/しまう stay separate too. */
+const joins = t => t.pos === '助動詞' ? !['だ', 'です', 'じゃ'].includes(t.basic_form)
   : t.pos === '助詞' ? t.pos_detail_1 === '接続助詞' && ['て', 'で'].includes(t.surface_form)
-  : t.pos === '動詞' && t.pos_detail_1 === '接尾';
+  : t.pos === '動詞' && (t.pos_detail_1 === '接尾' || t.pos_detail_1 === '非自立' && ['てる', 'でる'].includes(t.basic_form));
+const plain = t => t && t.surface_form.trim() && !/[぀-ヿ㐀-鿿豈-﫿]/.test(t.surface_form);
 
 function japanese(tokenizer, text) {
   const words = [];
+  let prev = null, glue = false;
   for (const t of tokenizer.tokenize(text)) {
     const p = t.pronunciation !== '*' && t.pronunciation, r = t.reading !== '*' && t.reading;
     // pronunciation gives は=wa but writes long vowels as ー; when that is the only difference prefer the reading (daijoubu, not daijoobu)
     const k = p && r && p.length === r.length && [...p].every((c, i) => c === r[i] || (c === 'ー' && 'ウオイ'.includes(r[i]))) ? r : p || r
       || (t.surface_form.length === 1 && reHan.test(t.surface_form) ? kanjiReading(tokenizer, t.surface_form) : null);
     const kana = k || t.surface_form; // unknown words have no reading: still convert bare kana
-    // join in kana, so a trailing っ doubles the next consonant (あっ+て -> atte)
-    if (words.length && joins(t)) words[words.length - 1] += kana; else words.push(kana);
+    // join in kana, so a trailing っ doubles the next consonant (あっ+て -> atte); a leading っ or lone ー also sticks to its neighbours,
+    // and adjacent non-Japanese tokens (*** + QLO) get no space between them
+    const attach = joins(t) || t.surface_form === 'ー' || t.pos === '動詞' && /^[っッ]/.test(kana) || (glue && t.pos !== '記号') || plain(t) && plain(prev);
+    if (words.length && attach) words[words.length - 1] += kana; else words.push(kana);
+    glue = /[っッ]$/.test(kana) && t.pos !== '感動詞' || t.surface_form === 'ー'; // あっ (interjection) must not double the next word
+    prev = t;
   }
   return words.map(w => kana2romaji(w)).join(' ').replace(/ +([,.!?;:、。！？)\]」』])/g, '$1').replace(/([(\[「『]) +/g, '$1').replace(/ {2,}/g, ' ').trim();
 }
@@ -114,6 +120,8 @@ function romanizeText(t, han, tone, deps, missing) {
    returns { text, missing: Set<'tokenizer'|'pinyin'> } */
 function convert(text, opts, deps) {
   const missing = new Set();
+  // opts.fix: one "original=replacement" per line, applied before romanizing (for readings the dictionary gets wrong)
+  const fixes = (opts.fix || '').split(/\r?\n/).map(l => l.split('=')).filter(p => p.length === 2 && p[0]);
   let han = opts.han || 'auto';
   if (han === 'auto') han = reKana.test(text) ? 'ja' : 'zh';
   const lines = [];
@@ -122,6 +130,7 @@ function convert(text, opts, deps) {
     let m, tags = '', body = line, pre = '', post = '';
     if ((m = line.match(reTime))) { tags = m[1]; body = m[2].trim(); }
     else if ((m = line.match(reMeta))) { pre = m[1]; body = m[2]; post = m[3]; }
+    for (const [a, b] of fixes) body = body.split(a).join(b);
     let r = body.trim() ? romanizeText(body, han, opts.tone || 'symbol', deps, missing) : body;
     if (r === null) r = '…';
     if (opts.cap && r) r = r.replace(/[a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜ]/, c => c.toUpperCase());

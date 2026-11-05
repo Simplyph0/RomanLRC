@@ -47,6 +47,10 @@
   <input type="file" id="file" accept=".lrc,.txt,text/plain" hidden>
   <span id="status"></span>
 </header>
+<details id="fixbox" style="padding:6px 16px;border-bottom:1px solid var(--bd);font-size:13px;color:var(--mut)">
+  <summary style="cursor:pointer">Fix readings (for words the dictionary gets wrong)</summary>
+  <textarea id="fix" rows="4" spellcheck="false" style="width:100%;margin-top:6px;border:1px solid var(--bd);border-radius:6px;padding:6px 8px;background:var(--pane);color:var(--fg);font:13px ui-monospace,monospace" placeholder="One per line: original=replacement, e.g.&#10;貴方様=anatasama"></textarea>
+</details>
 <main>
   <section>
     <div class="bar"><span>Original</span><button id="clear">Clear</button></div>
@@ -93,8 +97,8 @@ const needKuromoji = () => need('Japanese dictionary', async () => {
 function convert() {
   const res = RomanLRC.convert(inp.value, {
     han: $('han').value, tone: $('tone').value,
-    ts: $('ts').checked, cap: $('cap').checked, both: $('both').checked,
-  }, { tokenizer, pinyin: pinyinFn });
+    ts: $('ts').checked, cap: $('cap').checked, both: $('both').checked, fix: $('fix').value,
+  },{ tokenizer, pinyin: pinyinFn });
   if (res.missing.has('tokenizer')) needKuromoji();
   if (res.missing.has('pinyin')) needPinyin();
   return res.text;
@@ -105,6 +109,8 @@ let pending = 0;
 function render() { cancelAnimationFrame(pending); pending = requestAnimationFrame(() => { out.textContent = convert(); }); }
 inp.addEventListener('input', render);
 ['han','tone','ts','cap','both'].forEach(id => $(id).addEventListener('input', render));
+try { $('fix').value = localStorage.getItem('fix') || ''; $('fixbox').open = !!$('fix').value; } catch (e) {}
+$('fix').addEventListener('input', () => { try { localStorage.setItem('fix', $('fix').value); } catch (e) {} render(); });
 
 $('clear').onclick = () => { inp.value = ''; render(); inp.focus(); };
 $('open').onclick = () => $('file').click();
