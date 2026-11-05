@@ -94,3 +94,8 @@ test('Japanese long vowels: ou/ei from the reading, particles from the pronuncia
   const tok = fakeTok({ [text]: [v('大丈夫', 'ダイジョーブ', 'ダイジョウブ'), v('は', 'ワ', 'ハ'), v('ティータイム', 'ティータイム', 'ティータイム')] });
   assert.equal(R.convert(text, { han: 'ja' }, { tokenizer: tok }).text, 'daijoubu wa tiitaimu');
 });
+
+test('lone kanji without a reading borrows it from kanji + verb ending', () => {
+  const tok = fakeTok({ '惹': [{ surface_form: '惹' }], '惹か': [{ surface_form: '惹か', reading: 'ヒカ' }] });
+  assert.equal(R.convert('[00:08.51]惹', { han: 'ja' }, { tokenizer: tok }).text, '[00:08.51]hi');
+});

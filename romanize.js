@@ -42,6 +42,15 @@ function kana2romaji(s) {
   return o;
 }
 
+/* A lone kanji with no dictionary reading (line split mid-word, e.g. 惹|かれ): borrow it from kanji+verb ending (惹か -> ヒカ -> ヒ). */
+function kanjiReading(tokenizer, c) {
+  for (const s of 'かきくけいるれっ') {
+    const t = tokenizer.tokenize(c + s)[0], rest = t.surface_form.slice(c.length), r = t.reading;
+    if (t.surface_form.startsWith(c) && rest && r && r !== '*' && kata2hira(r).endsWith(rest)) return r.slice(0, -rest.length);
+  }
+  return null;
+}
+
 /* Tokens that belong to the word before them: auxiliaries (nai, tai, masu), verb suffixes (reru) and te/de.
    です/だ stay separate ("sei desu"); the dictionary's separate verbs like いる/しまう stay separate too. */
 const joins = t => t.pos === '助動詞' ? !['だ', 'です'].includes(t.basic_form)
@@ -53,7 +62,8 @@ function japanese(tokenizer, text) {
   for (const t of tokenizer.tokenize(text)) {
     const p = t.pronunciation !== '*' && t.pronunciation, r = t.reading !== '*' && t.reading;
     // pronunciation gives は=wa but writes long vowels as ー; when that is the only difference prefer the reading (daijoubu, not daijoobu)
-    const k = p && r && p.length === r.length && [...p].every((c, i) => c === r[i] || (c === 'ー' && 'ウオイ'.includes(r[i]))) ? r : p || r || null;
+    const k = p && r && p.length === r.length && [...p].every((c, i) => c === r[i] || (c === 'ー' && 'ウオイ'.includes(r[i]))) ? r : p || r
+      || (t.surface_form.length === 1 && reHan.test(t.surface_form) ? kanjiReading(tokenizer, t.surface_form) : null);
     const kana = k || t.surface_form; // unknown words have no reading: still convert bare kana
     // join in kana, so a trailing っ doubles the next consonant (あっ+て -> atte)
     if (words.length && joins(t)) words[words.length - 1] += kana; else words.push(kana);
