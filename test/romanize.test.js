@@ -75,3 +75,22 @@ test('no spaces after the timestamp, for romanized, passthrough and empty lines'
   const r = R.convert('[00:01.00] 사랑해\n[00:02.00] Tic-Tac\n[00:03.00] ', {}, {}).text;
   assert.equal(r, '[00:01.00]saranghae\n[00:02.00]Tic-Tac\n[00:03.00]');
 });
+
+test('Japanese: auxiliaries and te/de join the word, っ carries across tokens, です stays apart', () => {
+  const v = (s, p, x) => ({ surface_form: s, pronunciation: p, ...x });
+  const te = { pos: '助詞', pos_detail_1: '接続助詞' }, aux = b => ({ pos: '助動詞', basic_form: b });
+  const text = 'あってなりたいせいです';
+  const tok = fakeTok({ [text]: [
+    v('あっ', 'アッ', { pos: '動詞' }), v('て', 'テ', te),
+    v('なり', 'ナリ', { pos: '動詞' }), v('たい', 'タイ', aux('たい')),
+    v('せい', 'セイ', { pos: '名詞' }), v('です', 'デス', aux('です')),
+  ] });
+  assert.equal(R.convert(text, { han: 'ja' }, { tokenizer: tok }).text, 'atte naritai sei desu');
+});
+
+test('Japanese long vowels: ou/ei from the reading, particles from the pronunciation, katakana ー kept', () => {
+  const v = (s, pronunciation, reading) => ({ surface_form: s, pronunciation, reading });
+  const text = 'だいじょうぶはティータイム';
+  const tok = fakeTok({ [text]: [v('大丈夫', 'ダイジョーブ', 'ダイジョウブ'), v('は', 'ワ', 'ハ'), v('ティータイム', 'ティータイム', 'ティータイム')] });
+  assert.equal(R.convert(text, { han: 'ja' }, { tokenizer: tok }).text, 'daijoubu wa tiitaimu');
+});

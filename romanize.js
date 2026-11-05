@@ -42,14 +42,23 @@ function kana2romaji(s) {
   return o;
 }
 
+/* Tokens that belong to the word before them: auxiliaries (nai, tai, masu), verb suffixes (reru) and te/de.
+   です/だ stay separate ("sei desu"); the dictionary's separate verbs like いる/しまう stay separate too. */
+const joins = t => t.pos === '助動詞' ? !['だ', 'です'].includes(t.basic_form)
+  : t.pos === '助詞' ? t.pos_detail_1 === '接続助詞' && ['て', 'で'].includes(t.surface_form)
+  : t.pos === '動詞' && t.pos_detail_1 === '接尾';
+
 function japanese(tokenizer, text) {
-  const parts = [];
+  const words = [];
   for (const t of tokenizer.tokenize(text)) {
-    const k = t.pronunciation && t.pronunciation !== '*' ? t.pronunciation
-            : t.reading && t.reading !== '*' ? t.reading : null;
-    parts.push(kana2romaji(k || t.surface_form)); // unknown words have no reading: still convert bare kana
+    const p = t.pronunciation !== '*' && t.pronunciation, r = t.reading !== '*' && t.reading;
+    // pronunciation gives は=wa but writes long vowels as ー; when that is the only difference prefer the reading (daijoubu, not daijoobu)
+    const k = p && r && p.length === r.length && [...p].every((c, i) => c === r[i] || (c === 'ー' && 'ウオイ'.includes(r[i]))) ? r : p || r || null;
+    const kana = k || t.surface_form; // unknown words have no reading: still convert bare kana
+    // join in kana, so a trailing っ doubles the next consonant (あっ+て -> atte)
+    if (words.length && joins(t)) words[words.length - 1] += kana; else words.push(kana);
   }
-  return parts.join(' ').replace(/ +([,.!?;:、。！？)\]」』])/g, '$1').replace(/([(\[「『]) +/g, '$1').replace(/ {2,}/g, ' ').trim();
+  return words.map(w => kana2romaji(w)).join(' ').replace(/ +([,.!?;:、。！？)\]」』])/g, '$1').replace(/([(\[「『]) +/g, '$1').replace(/ {2,}/g, ' ').trim();
 }
 
 /* ---------- Korean (Revised Romanization, with basic liaison + final sounds) ---------- */
